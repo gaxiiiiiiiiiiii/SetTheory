@@ -39,9 +39,9 @@ Definition image {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) (a
     [set b | (a, b) ∈ graph Γ].
 
 Lemma imageP {T T' : finType} {A : {set T}} {B : {set T'}} {Γ : A → B} {a : T} {b : T'}:
-    b ∈ image Γ a = (a,b) ∈ graph Γ.
+    reflect ((a,b) ∈ graph Γ) (b ∈ image Γ a).
 Proof.
-    rewrite in_set => //.
+    apply (iffP idP); rewrite in_set => //.
 Qed.    
 
 
@@ -49,9 +49,9 @@ Definition preimage {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B)
     [set a | (a,b) ∈ graph Γ ].
 
 Lemma preimageP {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) a b :
-    a ∈ preimage Γ b = (a,b) ∈ graph Γ .
+    reflect ((a,b) ∈ graph Γ) (a ∈ preimage Γ b).
 Proof.
-    rewrite in_set => //.
+    apply (iffP idP); rewrite in_set => //.
 Qed.    
 
 Definition domain {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :=
@@ -79,28 +79,31 @@ Proof.
 Qed.    
 
 
-Definition invg {T T' : finType} (G : {set T * T'}) :=
+Definition inv_set {T T' : finType} (G : {set T * T'}) :=
     [set u | (u.2,u.1) ∈ G].
 
-
-Definition invType  {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :=
-    {Γ' : B → A | graph Γ' = invg (graph Γ)}.
-
-Definition inv_graph 
-    {T T' : finType} {A : {set T}} {B : {set T'}} {Γ : A → B} (Γ' : invType Γ) :=
-    let : exist a _ := Γ' in a.
-
-Coercion inv_graph : invType >-> corr.
-
-Definition inv  {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) : invType Γ.
+Lemma inv_setP {T T' : finType} {G : {set T * T'}} u :
+    reflect ((u.2, u.1) ∈ G) (u ∈ inv_set G).
 Proof.
-    destruct Γ => /=.
-    have axiom' : forall u, u ∈ (invg G) -> u.1 ∈ B /\ u.2 ∈ A.
-        move => u; rewrite in_set; move /axiom => /=.
-        move => [HA HB]; split => //.
-    pose Γ' := mkCorr (invg G) axiom'.
-    exists Γ' => //=.
+    apply (iffP idP); rewrite in_set => //.
+Qed.    
+
+
+
+Lemma invH {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :
+    forall u, u ∈ inv_set (graph Γ) -> u.1 ∈ B /\ u.2 ∈ A.
+Proof.
+    move => u; rewrite in_set.
+    induction Γ; move /axiom => [Ha Hb] //.
 Qed.
+
+Definition inv {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :=
+    mkCorr (inv_set (graph Γ)) (invH Γ).
+
+  
+
+
+
 
 
 
@@ -114,7 +117,7 @@ Axiom graph_extension :
  
 
 (* 3.1 *)  
-Lemma image_graph : forall {T T' : finType} {A : {set T}} {B : {set T'}} {Γ : A → B} {a : T}, 
+Lemma image_graph_ : forall {T T' : finType} {A : {set T}} {B : {set T'}} {Γ : A → B} {a : T}, 
     a ∈ A -> image Γ a = [set b | (a,b) ∈ graph Γ].
 Proof.
     move => T T' A B Γ a Ha.
@@ -161,6 +164,19 @@ Section Inv.
 
 Variable (T T' : finType) (A : {set T}) (B : {set T'}) (Γ : A → B).
 
+Lemma graph_inv :
+    graph (inv Γ) = inv_set (graph Γ).
+Proof. done. Qed.
+
+Lemma image_inv :
+    forall b, b ∈ B -> image (inv Γ) b = preimage Γ b.
+Proof.
+    move => b Hb; apply extension; apply /subsetP => a. 
+    +   move /imageP /inv_setP => /= H.
+        apply /preimageP => //.
+    +   move /preimageP => H; apply /imageP /inv_setP => //.  
+Qed.    
+
 
 
 (* 3.2 *)
@@ -169,8 +185,6 @@ Lemma in_inv :
 Proof.
     move => a b. 
     rewrite !in_set => //.
-    destruct (inv Γ), Γ => /=.
-    rewrite e => /=; rewrite in_set => //=.
 Qed.
 
 (* 3.3 *)
@@ -179,9 +193,8 @@ Lemma dom_inv :
     domain (inv Γ) = range Γ.
 Proof.
     apply extension; apply /subsetP => x; rewrite !in_set => 
-        /existsP [y Hy]; apply /existsP; exists y; move : Hy;
-        induction (inv Γ) as [Γ' axiom] => /=; rewrite axiom;
-        rewrite in_set => //=.
+        /existsP [y Hy]; apply /existsP; exists y ; move : Hy; 
+        rewrite graph_inv in_set => //=.
 Qed.
 
 Lemma rang_inv :
@@ -189,19 +202,16 @@ Lemma rang_inv :
 Proof.
     apply extension; apply /subsetP => x; rewrite !in_set => 
         /existsP [y Hy]; apply /existsP; exists y; move : Hy;
-        induction (inv Γ) as [Γ' axiom] => /=; rewrite axiom;
-        rewrite in_set => //=.
+        rewrite graph_inv in_set => //=.
 Qed.
 
 (* 3.4 *)
 Lemma invK :
-    Γ = inv  (inv Γ).
+    inv  (inv Γ) = Γ.
 Proof.
-    apply graph_inj.
-    destruct (inv Γ) as [Γ' axiom'] => /=.
-    destruct (inv Γ') as [Γ'' axiom''] => /=.
+    apply graph_inj => /=.
     apply extension; apply /subsetP => x;
-    rewrite axiom'' in_set axiom' in_set /= -surjective_pairing => //.
+    rewrite !in_set -surjective_pairing => //=.
 Qed.
 
 End Inv.
