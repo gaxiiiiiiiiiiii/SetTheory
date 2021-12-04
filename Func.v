@@ -1,4 +1,5 @@
 Require Export Ops.
+Require Import ProofIrrelevance.
 
 
 
@@ -21,18 +22,19 @@ Notation graph := (Func.G _ _ ).
 Notation "A → B" := (func A B)(at level 30).
 Notation mkFunc := (Func.Pack _ _ _ _).
 
-Lemma mixinIX {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}) : 
-    Func.mixin A B (G ∩ setX A B).
-Proof.
-    move => [a b] /setIP [_  /setXP H] => //.
-Qed.    
 
 
+(* Definition map_eq   {T T' : finType} (A : {set T}) (B : {set T'}) : rel (A → B) :=
+    fun f f' => Func.G A B f == Func.G A B f'.
 
+Axiom map_eqAxiom : forall {T T' : finType} (A : {set T}) (B : {set T'}),
+    @Equality.axiom (A → B)(map_eq A B).
 
+Definition map_eqMixin {T T' : finType} (A : {set T}) (B : {set T'}) := 
+    Equality.Mixin (map_eqAxiom A B).
 
-
-
+Canonical map_eqType {T T' : finType} (A : {set T}) (B : {set T'}) := 
+    EqType (A → B) (map_eqMixin A B). *)
 
 
 
@@ -116,13 +118,23 @@ Definition inv {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :=
 
 
 
+Theorem func_extension {T T' : finType} {A : {set T}} {B : {set T'}} (Γ Γ' : A → B) :
+    graph Γ = graph Γ' -> Γ = Γ'.    
+Proof.
+    move => H; induction Γ, Γ'.
+    simpl in H; subst G0.
+    move : (proof_irrelevance _ axiom axiom0) -> => //.
+Qed.
 
 
 
 
-Axiom graph_extension :
+(* Axiom func_extension :
     forall {T T' : finType} {A : {set T}} {B : {set T'}} (Γ Γ' : A → B),
     (forall a, a ∈ A -> image Γ a = image Γ' a) -> Γ = Γ'.
+Proof. *)
+  
+
 
 
 
@@ -141,14 +153,10 @@ Lemma graph_inj : forall (T T' : finType) (A : {set T}) (B : {set T'}) (Γ Γ': 
 Proof.
     move => T T' A B Γ Γ'.
     move /setP /subset_eqP /andP; case => H1 H2.
-    apply graph_extension => a Ha.
+    apply func_extension.
     apply extension; apply /subsetP => b Hb.
-    +   suff : (a,b) ∈ graph Γ'.
-            rewrite in_set => //=.
-        move /subsetP : H1; apply; rewrite in_set in Hb => //.
-    +   suff : (a,b) ∈ graph Γ.
-            rewrite in_set => //.
-        move /subsetP : H2; apply; rewrite in_set in Hb => //.
+    +   move /subsetP : H1; apply => //.
+    +   move /subsetP : H2; apply => //.
 Qed.  
 
 
