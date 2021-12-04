@@ -1,4 +1,54 @@
-Require Export Graph.
+Require Export Func.
+
+Print SubType.
+
+(* Definition map_pred {T T' : finType} (A : {set T}) (B : {set T'}) u :=
+    [forall a, a ∈ A ==> 
+        [exists b, (b ∈ B) && ((a,b) == u) && 
+            [forall b', (b' ∈ B) && ((a,b') == u) ==> (b == b')]
+        ]
+    ].
+
+
+
+Definition map_set_ {T T' : finType} (A : {set T}) (B : {set T'}) :=
+    [set u : T * T' | map_pred A B u].
+
+Search "sub" "Type".    
+
+
+Lemma map_setP_ {T T' : finType} (A : {set T}) (B : {set T'}) u :
+    reflect (forall a, a ∈ A -> exists! b, b ∈ B /\ (a,b) = u ) (u ∈ (map_set_ A B)).
+Proof.
+    apply (iffP idP); rewrite in_set.
+    +   move /forallP => H a Ha.
+        move : (H a) => {H}; move /implyP => H.
+        move : (H Ha) => {H}; move /existsP => 
+            [b /andP [/andP [Hb /eqP Hu] /forallP Huni ]]; subst u.
+        exists b; repeat split => //.
+        move => b' [Hb' Hab]; apply /eqP; move : (Huni b'); 
+        move /implyP; apply; apply /andP; split => //; apply /eqP => //.
+    +   move => H.
+        apply /forallP => a; apply /implyP => Ha; apply /existsP.
+        move : (H a Ha) => [b [[Hb Hu] Huni]].
+        exists b; apply /andP; split.
+        -   apply /andP; split => //; apply /eqP => //.
+        -   apply /forallP => b'; apply /implyP => /andP [Hb' Hu'].
+            apply /eqP; apply Huni; split => //; apply /eqP => //.
+Qed.
+
+Definition map_set {T T' : finType} (A : {set T}) (B : {set T'}) := 
+    map_set_ A B ∩ setX A B.
+
+Definition map {T T' : finType} (A : {set T}) (B : {set T'}) :=
+    mkFunc (map_set A B) (mixinIX A B (map_set_ A B)).
+
+Notation "A ⟶ B" := (map A B) (at level 30). *)
+
+
+
+        
+
 
 Module Map.
 
@@ -10,8 +60,8 @@ Record map {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
 End Map.
 
 Notation map := Map.map.
-Coercion Map.Γ : map >-> corr.
-Notation "A -map-> B" := (map A B)(at level 30).
+Coercion Map.Γ : map >-> func.
+Notation "A ⟶ B" := (map A B)(at level 30).
 Notation mkMap := (Map.Pack _ _ _ _).
 
 
@@ -25,7 +75,7 @@ Variable (T T' : finType) (A : {set T}) (B : {set T'}).
 
 
 
-Lemma domain_map (f : A -map-> B) :
+Lemma domain_map (f : A ⟶ B) :
     domain f = A.
 Proof.
     destruct f as [Γ Hf].
@@ -36,8 +86,8 @@ Proof.
     +   move => aA.
         move : (Hf a aA) => /= [b Hb].
         apply /existsP; exists b.
-        suff : b ∈ image (mkCorr G HG) a.
-            rewrite (image_graph aA) in_set => //=.
+        suff : b ∈ image (mkFunc G HG) a.
+            move /imageP => //.
         rewrite Hb; apply /set1P => //.
 Qed.        
 
@@ -45,7 +95,7 @@ Qed.
 
 
 Lemma map_graph : forall G : {set T * T'}, G ⊂ setX A B ->
-    (exists f : A -map-> B, G = graph f) <-> 
+    (exists f : A ⟶ B, G = graph f) <-> 
     (forall a, a ∈ A -> exists ! b, (a,b) ∈ G).
 Proof.
     move => G HG.
@@ -55,15 +105,15 @@ Proof.
         rewrite H => // a Ha.
         move : (Hf a Ha) => [b Hb].
         exists b; repeat split. 
-        -   simpl. 
-            suff : b ∈ image Γ a.
-                rewrite image_graph => //; rewrite in_set => //.
+        -   suff : b ∈ image Γ a.
+                move /imageP => //.
             rewrite Hb; apply /set1P => //.
-        -   move => b' /=. rewrite -imageP Hb; move /set1P => //=.
+        -   move => b' /=. 
+            move /imageP; rewrite Hb; move /set1P => //=.
     +   have Hc : forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B.
             move /subsetP : HG => HG.
             move => u /HG; rewrite in_set; move /andP => //.
-        pose Γ := mkCorr G Hc.
+        pose Γ := mkFunc G Hc.
         have Hm : forall a, a ∈ A -> exists b, image Γ a = [set b].
             move => a /H => Hb.
             induction Hb as [b Hb].
@@ -71,10 +121,9 @@ Proof.
             exists b.
             move /subsetP : HG => HG.
             move : (HG _ Hb); rewrite in_set => /=; move /andP => [aA bB].
-            rewrite (image_graph aA).
             apply extension; apply /subsetP => b'; rewrite in_set.
             -   move /unib ->; apply /set1P => //.
-            -   move /set1P -> => //.
+            -   move /eqP ->; apply /imageP => //.
         exists (mkMap Γ Hm) => //=.
 Qed.        
 
@@ -107,7 +156,7 @@ Qed.
 
 Section Image.
 
-Variable (T T' : finType) (A P P1 P2 P3 : {set T}) (B Q Q1 Q2 Q3 : {set T'}) (f : A -map-> B).
+Variable (T T' : finType) (A P P1 P2 P3 : {set T}) (B Q Q1 Q2 Q3 : {set T'}) (f : A ⟶ B).
 Hypotheses PA : P ⊂ A.
 Hypotheses PA1 : P1 ⊂ A.
 Hypotheses PA2 : P2 ⊂ A.
@@ -189,7 +238,7 @@ Proof.
         destruct f.
         destruct Γ.
         have : (a,b1) ∈ G.
-            rewrite imageP in fa1 => //.
+            move /imageP in fa1 => //.
         move /axiom0 => /= [aA bB].
         move : (axiom a aA) => [b Hb].
         rewrite Hb in fa1.
@@ -207,11 +256,11 @@ Proof.
     +   move /PreimageP => [b [fa /setDP [HB HQ]]].
         destruct f.
         destruct Γ.
-        rewrite imageP in fa.
+        move /imageP in fa.
         move : (axiom0 _ fa) => /= [aA bB].
         apply /setDP; split => //.
         apply /negP; move =>  /PreimageP [b' [Hb' F]].
-        rewrite -imageP in fa.
+        move /imageP in fa.
         move : (axiom _ aA) => [b'' Hb''].
         move : Hb'; rewrite Hb''; move /set1P => bb; subst b''.
         move : fa => /=; rewrite Hb''; move /set1P => bb; subst b'.
@@ -224,9 +273,9 @@ Proof.
         exists b; split => /=.
         -   rewrite Hb; apply /set1P => //.
         -   apply /setDP.
-            have : b ∈ image (mkCorr G axiom0) a.
+            have : b ∈ image (mkFunc G axiom0) a.
                 rewrite Hb; apply /set1P => //.
-            rewrite imageP => /=.
+            move /imageP => /=.
             move /axiom0 => /= [_ bB].
             split => //.
             apply /negP => bQ.
@@ -257,13 +306,13 @@ Proof.
     move /ImageP => [a [ /PreimageP [b' [fa' bQ]] fa]].
     induction f, Γ.
     move : fa fa' => /=.
-    rewrite !imageP => /= HG HG'.
+    move => /imageP HG /imageP HG'.
     move : (axiom0 _ HG) => /= [aA bB].
-    move : (axiom a aA) => [b'' Hb''].
-    move : Hb''.
-    rewrite image_graph => //= H.
+    move : (axiom a aA) => [b'' H].
+    (* move : Hb''. *)
+    (* rewrite ImageP => //= H. *)
     have bb : b ∈ [set b''].
-        rewrite -H in_set => //.
+        rewrite -H; apply /imageP => //.
     have bb' : b' ∈ [set b''].
         rewrite -H in_set => //.
     move : bb; move /set1P ->.
@@ -273,19 +322,19 @@ Qed.
 End Image.
 
 
-Definition surj {T T' : finType} {A : {set T}} {B : {set T'}} (f : A -map-> B) :=
+Definition surj {T T' : finType} {A : {set T}} {B : {set T'}} (f : A ⟶ B) :=
     range f = B.
 
-Definition inj {T T' : finType} {A : {set T}} {B : {set T'}} (f : A -map-> B) :=
+Definition inj {T T' : finType} {A : {set T}} {B : {set T'}} (f : A ⟶ B) :=
     forall a a', a ∈ A -> a' ∈ A -> image f a = image f a' -> a = a'.
 
-Definition bij {T T' : finType} {A : {set T}} {B : {set T'}} (f : A -map-> B) :=
+Definition bij {T T' : finType} {A : {set T}} {B : {set T'}} (f : A ⟶ B) :=
     surj f /\ inj f.
 
 
 
 
-Theorem inv_bij_ {T T' : finType} {A : {set T}} {B : {set T'}} (f : A -map-> B) :
+Theorem inv_bij_ {T T' : finType} {A : {set T}} {B : {set T'}} (f : A ⟶ B) :
     (forall b, b ∈ B -> exists a, image (inv f) b = [set a]) <-> bij f.
 Proof.
     split => H.
@@ -299,7 +348,8 @@ Proof.
                 apply /existsP; exists a.
                 have : a ∈ image (inv f) b.
                     rewrite Ha; apply /set1P => //.
-                rewrite -in_inv // imageP => //.
+                rewrite in_inv //.
+                move /imageP => //.
         -   move => a1 a2 Ha1 Ha2 Ha.
             induction f, Γ.
             simpl in Ha; simpl in H.
@@ -309,45 +359,34 @@ Proof.
             have : b1 ∈ [set b2].
                 rewrite -Ha; apply /set1P => //.
             move /set1P => bb; subst b2 => {Ha}.
-            have : b1 ∈ image (mkCorr G axiom0) a1.
+            have : b1 ∈ image (mkFunc G axiom0) a1.
                 rewrite Hb1; apply /set1P => //.
-            rewrite imageP => /=; move /axiom0 => /=; case => _.
+            move /imageP => /=; move /axiom0 => /=; case => _.
             move /H => [a Ha]; move.
             have : b1 ∈ [set b1] by apply /set1P => //.
-            rewrite -Hb1; rewrite in_inv Ha; move /set1P ->.
+            rewrite -Hb1 -in_inv Ha; move /set1P ->.
             have : b1 ∈ [set b1] by apply /set1P => //.
-            rewrite -Hb2; rewrite in_inv Ha; move /set1P ->.
+            rewrite -Hb2 -in_inv Ha; move /set1P ->.
             done.
-    +   move : H; case; rewrite /surj /inj => Hi Hs b bB.        
-        pose f' := inv f.
-        inversion f' as [Γ HΓ].
-        rewrite -Hi in bB; move : bB.
-        move /rangeP => [a Hab].
-        destruct Γ; move : HΓ => /= HG.
-        have baG : (b,a) ∈ G.
-            rewrite HG in_set => //=.
-        move : (axiom _ baG) => /= [bB aA].
-        exists a; apply extension; apply /subsetP => a'; rewrite -in_inv imageP => H.
-        +   suff : a' = a. 
+    +   move : H; case; rewrite /surj /inj => Hi Hs b bB.
+        rewrite -Hi in bB.
+        move /rangeP : bB => [a Hab].
+        exists a; apply extension; apply /subsetP => a'; rewrite in_inv.
+        -   move /imageP => Hab'.
+            move : (in_graph _ _ Hab') => /= [Ha' _].
+            move : (in_graph _ _ Hab) => /= [Ha Hb].
+            suff : a = a'.
                 move ->; apply /set1P => //.
-            induction f.
-            have  : (b,a') ∈ G.
-                rewrite HG in_set => //=.
-            move /axiom => /= [_ a'A].
-            apply Hs => //=.
-            move : (axiom0 _ aA) => [b1 H1].
-            have : b ∈ image Γ a. 
-                rewrite imageP => //.
-            rewrite H1; move /set1P => bb; subst b1.
-            move : (axiom0 _ a'A) => [b2 H2].
-            have : b ∈ image Γ a'.
-                rewrite imageP => //.
-            rewrite H2; move /set1P => bb; subst b2 => //.
-        +   move /set1P : H -> => //.
-
+            apply Hs => //.
+            induction f => /=.
+            move /imageP : Hab; move /imageP : Hab' => /=.
+            move : (axiom _ Ha); case => b0 ->.
+            move : (axiom _ Ha'); case => b0' ->.
+            move /set1P ->; move /set1P -> => //.
+        +   move /set1P ->; apply /imageP => //.
 Qed.
 
-Theorem inv_bij {T T' : finType} {A : {set T}} {B : {set T'}} (f : A -map-> B) :
+Theorem inv_bij {T T' : finType} {A : {set T}} {B : {set T'}} (f : A ⟶ B) :
     (exists H f', f' = mkMap (inv f) H) <-> bij f.
 Proof.
     split.
@@ -357,7 +396,7 @@ Proof.
         exists H, f' => //.
 Qed.        
 
-Theorem bij_inv {T T' : finType} {A : {set T}} {B : {set T'}} (f : A -map-> B) :
+Theorem bij_inv {T T' : finType} {A : {set T}} {B : {set T'}} (f : A ⟶ B) :
     bij f -> exists H, bij (mkMap (inv f) H).
 Proof.
     move  => H.
@@ -375,18 +414,18 @@ Proof.
         move /set1P => aa; subst a' => {Hb}.
         have : a ∈ image (inv f) b.
             rewrite Ha; apply /set1P => //.
-        rewrite -in_inv imageP => Hab.
+        rewrite in_inv; move /imageP => Hab.
         have : a ∈ image (inv f) b'.
             rewrite Ha'; apply /set1P => //.
-        rewrite -in_inv imageP=> Hab'.
+        rewrite in_inv; move /imageP => Hab'.
         induction f, Γ.
         move : (axiom0 _ Hab)=> /=. case => aA _.
         move : Hab Hab'=> /= Hab Hab'.
         move : (axiom _ aA) => /= [b0 Hb0].
         have : b = b0.
-            apply /set1P; rewrite -Hb0 imageP => //.
+            apply /set1P; rewrite -Hb0; apply /imageP => //.
         have : b' = b0.
-            apply /set1P; rewrite -Hb0 imageP => //.
+            apply /set1P; rewrite -Hb0; apply /imageP => //.
         move ->; move -> => //.
 Qed. 
 
@@ -395,7 +434,161 @@ Qed.
 
 
 
+Definition comp_set  {T1 T2 T3 : finType} (G : {set T2 * T3}) (F : {set T1 * T2}) :=
+    [set u | [ exists b, ((u.1, b) ∈ F) && ((b,u.2) ∈ G) ]].
 
+
+Lemma comp_setP  {T1 T2 T3 : finType} (G : {set T2 * T3}) (F : {set T1 * T2}) u :
+    reflect ( exists b, ((u.1, b) ∈ F) /\ ((b,u.2) ∈ G)) (u ∈ comp_set G F).
+Proof.
+    apply (iffP idP); rewrite in_set.
+    +   move /existsP => [b /andP Hb]; exists b => //.
+    +   move => [b Hb]; apply /existsP; exists b; apply /andP => //.
+Qed.
+
+Lemma compcH {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
+    (g : B → C) (f : A → B) : let gf := comp_set (graph g) (graph f) in
+    forall u, u ∈ gf -> u.1 ∈ A /\ u.2 ∈ C.
+Proof.    
+    move => gf u /comp_setP; case => b; case => //.
+    induction f as [f_ Hf], g as [g_ Hg] => /=.
+    move /Hf => /= [Ha Hb].
+    move /Hg => /= [_ Hc].
+    done.
+Qed.
+
+Definition compc {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
+    (g : B → C) (f : A → B) : A → C := mkFunc (comp_set (graph g) (graph f)) (compcH g f).
+
+
+Lemma compH {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
+    (g : B ⟶ C) (f : A ⟶ B) : 
+    forall a, a ∈ A -> exists b, image (compc g f) a = [set b].
+Proof.
+    induction f as [Γf Hf], g as [Γg Hg].
+    induction Γf as [Gf HGf], Γg as [Gg HGg].
+    move => a /=.
+    move /Hf => [b Hb].
+    have : (a,b) ∈ graph (mkFunc Gf HGf).
+        apply /imageP; rewrite Hb; apply /set1P => //.
+    move /HGf; case => _ /=.
+    move /Hg => [c Hc].
+    have : (b,c) ∈ graph (mkFunc Gg HGg).
+        apply /imageP; rewrite Hc; apply /set1P => //.
+    move /HGg => /= [bB cC].
+    exists c.
+    apply extension; apply /subsetP => c'. move /imageP => /=.
+    +   move /comp_setP => /= [b' [Hb' Hc']].
+        have bb : b' = b.
+            apply /set1P; rewrite -Hb; apply /imageP => //=.
+        subst b'.
+        have cc : c' = c.
+            apply /set1P; rewrite -Hc. apply /imageP => //.
+        subst c'.
+        apply /set1P => //.
+    +   move /set1P ->.
+        apply /imageP => /=.
+        apply /comp_setP; exists b => /=; split.
+        -   suff : b ∈ image (mkFunc Gf HGf) a.
+                apply /imageP => //.
+            rewrite Hb; apply /set1P => //.
+        -   suff : c ∈ image (mkFunc Gg HGg) b.
+                apply /imageP => //.
+            rewrite Hc; apply /set1P => //.
+Qed.            
+
+Definition comp   {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
+    (g : B ⟶ C) (f : A ⟶ B) := mkMap (compc g f) (compH g f).
+
+Notation "g ○ f" := (comp g f) (at level 30).
+
+Lemma image_comp {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
+    (g : B ⟶ C) (f : A ⟶ B) : 
+    forall a, a ∈ A -> image (g ○ f) a = Image g (image f a).
+Proof.
+    move => a ha.
+    apply extension; apply /subsetP => c.
+    +   move /imageP /comp_setP => /= [b [Hab Hbc]].
+        apply /ImageP. exists b; split; apply /imageP => //.
+    +   move /ImageP => [b [Hab Hbc]].
+        apply /imageP; apply /comp_setP; exists b; split; apply /imageP => //.
+Qed.
+
+Section comp.
+Variable (T1 T2 T3 : finType) (A : {set T1}) (B : {set T2}) (C : {set T3}).
+Variable (f : A ⟶ B) (g : B ⟶ C).
+
+Theorem inj_comp :
+    inj f -> inj g -> inj (g ○ f).
+Proof.
+    move => Hf Hg a a' Ha Ha' H. 
+
+    remember (g ○ f) as h.
+    rewrite /comp /compc in Heqh.
+
+
+
+    induction h as [Γh Hh].
+    move : (Hh a Ha) => [c0 ha].
+    move : (Hh a' Ha') => [c0' ha'].
+    move : H => /=; rewrite ha ha' => cc'.
+    have cc : c0' = c0.
+        apply /set1P; rewrite cc'; apply /set1P => //.
+    subst c0' => {cc'}.
+    inversion Heqh => {Heqh}.
+
+
+    have: c0 ∈ image Γh a.
+        rewrite ha; apply /set1P => //.
+    have : c0 ∈ image Γh a'.
+        rewrite ha'; apply /set1P => //.
+    rewrite H0.
+    (* rewrite !ImageP => /=. *)
+    move /imageP /comp_setP => /= [b0' [fa' gb0']].
+    move /imageP /comp_setP => /= [b0 [fa gb]].
+    
+
+    
+    move : (Hf a a' Ha Ha').
+    apply.
+    induction f => /=.
+    move : Ha'; move /axiom => [b' fb'].
+    move : Ha;  move /axiom => [b fb].
+    rewrite fb fb'.
+    suff : b = b'.
+        move -> => //.
+        
+    
+    induction Γ as [G HG].
+    have : (a,b) ∈ graph (mkFunc G HG).
+        apply /imageP; rewrite fb; apply /set1P => //.
+    have : (a',b') ∈ graph (mkFunc G HG).
+        apply /imageP; rewrite fb'; apply /set1P => //.
+    move /HG => /= [Ha' Hb'].
+    move /HG => /= [Ha Hb].
+    apply Hg => //.
+
+    induction g.
+    move : Hb; move /axiom0. move  => [c Hc].
+    move : Hb'; move /axiom0 => [c' Hc'].
+    rewrite Hc Hc'.
+    suff : c = c'.
+        move -> => //.
+
+
+    have : b0 ∈  image (mkFunc G HG) a.
+        apply /imageP => //. 
+    rewrite fb; move /set1P => bb; subst b0.
+    inversion gb.
+    move : gb; move /imageP; rewrite Hc; move /set1P <-.
+    
+    have : b0' ∈  image (mkFunc G HG) a'.
+        apply /imageP => //.
+    rewrite fb'; move /set1P => bb; subst b0'.    
+    move : gb0'; move /imageP; rewrite Hc' ; move /set1P <-.
+
+    done.
+Qed.
     
 
 

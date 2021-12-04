@@ -2,29 +2,41 @@ Require Export Ops.
 
 
 
-Module Corr.
 
 
-     
+Module Func.
 
-Record corr {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
+Definition mixin {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}):=
+     forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B.   
+
+Record func {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
     G :> {set  T * T'};
     axiom : forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B
 }.
 
-End Corr.
+End Func.
 
-Notation corr := Corr.corr.
-Notation graph := (Corr.G _ _ ).
-Notation "A → B" := (corr A B)(at level 30).
-Notation mkCorr := (Corr.Pack _ _ _ _).
+Notation func := Func.func.
+Notation graph := (Func.G _ _ ).
+Notation "A → B" := (func A B)(at level 30).
+Notation mkFunc := (Func.Pack _ _ _ _).
+
+Lemma mixinIX {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}) : 
+    Func.mixin A B (G ∩ setX A B).
+Proof.
+    move => [a b] /setIP [_  /setXP H] => //.
+Qed.    
 
 
 
 
 
 
-Theorem in_corr {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B)  (u : T * T') :
+
+
+
+
+Theorem in_graph {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B)  (u : T * T') :
     u ∈ graph Γ ->  u.1 ∈ A  /\ u.2 ∈ B.
 Proof.
     destruct Γ => /= H.
@@ -98,7 +110,7 @@ Proof.
 Qed.
 
 Definition inv {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :=
-    mkCorr (inv_set (graph Γ)) (invH Γ).
+    mkFunc (inv_set (graph Γ)) (invH Γ).
 
   
 
@@ -153,7 +165,7 @@ Proof.
     have H : forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B. 
         move => u; move /HG. 
         rewrite [u]surjective_pairing => /=; move /setXP => //.
-    pose Γ := mkCorr G H.
+    pose Γ := mkFunc G H.
     exists Γ; split => //= Γ' H'.
     apply graph_inj; rewrite -H' => //=.
 Qed.   
@@ -181,7 +193,7 @@ Qed.
 
 (* 3.2 *)
 Lemma in_inv :
-    forall a b, b ∈ (image Γ a) <-> a ∈ image (inv Γ) b.
+    forall a b,  a ∈ image (inv Γ) b = b ∈ (image Γ a).
 Proof.
     move => a b. 
     rewrite !in_set => //.
@@ -212,6 +224,7 @@ Proof.
     apply graph_inj => /=.
     apply extension; apply /subsetP => x;
     rewrite !in_set -surjective_pairing => //=.
+
 Qed.
 
 End Inv.
