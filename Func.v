@@ -141,7 +141,7 @@ Proof. *)
  
 
 (* 3.1 *)  
-Lemma image_graph_ : forall {T T' : finType} {A : {set T}} {B : {set T'}} {Γ : A → B} {a : T}, 
+Lemma image_graph : forall {T T' : finType} {A : {set T}} {B : {set T'}} {Γ : A → B} {a : T}, 
     a ∈ A -> image Γ a = [set b | (a,b) ∈ graph Γ].
 Proof.
     move => T T' A B Γ a Ha.

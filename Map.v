@@ -4,6 +4,10 @@ Require Export Func.
 
 Module Map.
 
+Definition mixin {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :=
+    forall a, a ∈ A -> exists b, image Γ a = [set b].
+
+
 Record map {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
     Γ :> A → B;
     axiom : forall a, a ∈ A -> exists b, image Γ a = [set b]
