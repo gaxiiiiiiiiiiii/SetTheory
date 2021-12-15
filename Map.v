@@ -13,6 +13,20 @@ Record map {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
     axiom : forall a, a ∈ A -> exists b, image Γ a = [set b]
 }.
 
+Theorem theorem {T T' : finType} {A : {set T}} {B : {set T'}} {f  : map A B} {a b b'}:
+    b ∈ image f a -> b' ∈ image f a -> b = b'.
+Proof.
+    move => H H'.
+    have Ha : a ∈ A.
+        move /imageP : H.
+        induction f, Γ.
+        move /axiom1 => [aA _] //.
+    induction f.
+    move : H H'.
+    move : (axiom0 a Ha); case => b0 ->.
+    repeat (move /set1P ->) => //.
+Qed.
+
 End Map.
 
 Notation map := Map.map.
