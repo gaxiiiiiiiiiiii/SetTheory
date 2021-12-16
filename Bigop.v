@@ -205,7 +205,7 @@ Proof.
         move /PreimageP => [b' [fa' b'Y']].
         suff : b = b'.
             by move ->.
-        apply (Map.theorem fa fa').
+        apply (map_theorem fa fa').
 Qed.    
     
 
