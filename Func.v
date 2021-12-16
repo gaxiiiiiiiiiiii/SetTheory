@@ -2,39 +2,56 @@ Require Export Ops.
 Require Import ProofIrrelevance.
 
 
-
-
-
 Module Func.
 
-Definition mixin {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}):=
-     forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B.   
+    Definition mixin {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}) :=
+            [forall u, u ∈ G ==> (u.1 ∈ A) && (u.2 ∈ B)].
 
-Record func {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
-    G :> {set  T * T'};
-    axiom : forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B
-}.
+    Record func {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
+        sort :> {set  T * T'};
+        axiom : [forall u, u ∈ sort ==> (u.1 ∈ A) && (u.2 ∈ B)]
+    }.
 
 End Func.
 
 Notation func := Func.func.
-Notation graph := (Func.G _ _ ).
+Notation graph := (Func.sort _ _ ).
 Notation "A → B" := (func A B)(at level 30).
 Notation mkFunc := (Func.Pack _ _ _ _).
+Coercion Func.sort : func >-> set_of.
+
+Section funcCanonical.
+
+    Context {T T' : finType} (A : {set T}) (B : {set T'}).
+
+    Canonical func_subType := Eval hnf in [subType for (Func.sort A B)].
+
+    Definition func_eqMixin := Eval hnf in [eqMixin of (A →  B) by <:].
+    Canonical func_eqType := Eval hnf in EqType (A → B) func_eqMixin.
+
+    Definition func_choiceMixin := [choiceMixin of (A → B) by <:].
+    Canonical func_choiceType := Eval hnf in ChoiceType (A → B) func_choiceMixin.
+
+    Definition func_countMixin := [countMixin of (A → B) by <:].
+    Canonical func_countType := Eval hnf in CountType (A → B) func_countMixin.
+
+    Canonical func_subCountType := Eval hnf in [subCountType of (A → B)].
+
+    Definition func_finMixin := [finMixin of (A → B) by <:].
+    Canonical func_finType := Eval hnf in FinType (A → B) func_finMixin.
+
+    Canonical func_subFinType := Eval hnf in [subFinType of (A → B)].
+
+End funcCanonical.
 
 
 
-(* Definition map_eq   {T T' : finType} (A : {set T}) (B : {set T'}) : rel (A → B) :=
-    fun f f' => Func.G A B f == Func.G A B f'.
 
-Axiom map_eqAxiom : forall {T T' : finType} (A : {set T}) (B : {set T'}),
-    @Equality.axiom (A → B)(map_eq A B).
 
-Definition map_eqMixin {T T' : finType} (A : {set T}) (B : {set T'}) := 
-    Equality.Mixin (map_eqAxiom A B).
 
-Canonical map_eqType {T T' : finType} (A : {set T}) (B : {set T'}) := 
-    EqType (A → B) (map_eqMixin A B). *)
+
+
+
 
 
 
@@ -42,7 +59,7 @@ Theorem in_graph {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B)  (
     u ∈ graph Γ ->  u.1 ∈ A  /\ u.2 ∈ B.
 Proof.
     destruct Γ => /= H.
-    apply axiom => //.
+    move /forallP /(_ u) /implyP /(_ H) /andP : axiom => //.
 Qed.    
 
 
@@ -93,22 +110,25 @@ Proof.
 Qed.    
 
 
-Definition inv_set {T T' : finType} (G : {set T * T'}) :=
+Definition inv_set {T T' : finType} (G : {set T * T'}) : {set T' * T}:=
     [set u | (u.2,u.1) ∈ G].
 
 Lemma inv_setP {T T' : finType} {G : {set T * T'}} u :
     reflect ((u.2, u.1) ∈ G) (u ∈ inv_set G).
 Proof.
     apply (iffP idP); rewrite in_set => //.
-Qed.    
+Qed.
+
+
 
 
 
 Lemma invH {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :
-    forall u, u ∈ inv_set (graph Γ) -> u.1 ∈ B /\ u.2 ∈ A.
+    Func.mixin B A (inv_set (graph Γ)).
 Proof.
-    move => u; rewrite in_set.
-    induction Γ; move /axiom => [Ha Hb] //.
+    apply /forallP => u; apply /implyP.
+    move /inv_setP /in_graph => //= [Ha Hb].
+    apply /andP; split => //.
 Qed.
 
 Definition inv {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :=
@@ -118,28 +138,6 @@ Definition inv {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :=
 
 
 
-Theorem func_extension {T T' : finType} {A : {set T}} {B : {set T'}} (Γ Γ' : A → B) :
-    graph Γ = graph Γ' -> Γ = Γ'.    
-Proof.
-    move => H; induction Γ, Γ'.
-    simpl in H; subst G0.
-    move : (proof_irrelevance _ axiom axiom0) -> => //.
-Qed.
-
-
-
-
-(* Axiom func_extension :
-    forall {T T' : finType} {A : {set T}} {B : {set T'}} (Γ Γ' : A → B),
-    (forall a, a ∈ A -> image Γ a = image Γ' a) -> Γ = Γ'.
-Proof. *)
-  
-
-
-
-
- 
-
 (* 3.1 *)  
 Lemma image_graph : forall {T T' : finType} {A : {set T}} {B : {set T'}} {Γ : A → B} {a : T}, 
     a ∈ A -> image Γ a = [set b | (a,b) ∈ graph Γ].
@@ -148,16 +146,13 @@ Proof.
     apply extension; apply /subsetP => x; rewrite !in_set => //.
 Qed.
 
-Lemma graph_inj : forall (T T' : finType) (A : {set T}) (B : {set T'}) (Γ Γ': A → B),
+Lemma func_extension (T T' : finType) (A : {set T}) (B : {set T'}) (Γ Γ': A → B) :
     graph Γ = graph Γ' -> Γ = Γ'.
 Proof.
-    move => T T' A B Γ Γ'.
-    move /setP /subset_eqP /andP; case => H1 H2.
-    apply func_extension.
-    apply extension; apply /subsetP => b Hb.
-    +   move /subsetP : H1; apply => //.
-    +   move /subsetP : H2; apply => //.
-Qed.  
+    move => H; induction Γ, Γ'.
+    simpl in H; subst sort0.
+    move : (proof_irrelevance _ axiom axiom0) -> => //.
+Qed.
 
 
 
@@ -170,12 +165,16 @@ Theorem uniex_graph : forall {T T' : finType} {A : {set T}} {B : {set T'}},
 Proof.
     move => T T' A B G HG.
     move /subsetP : HG => HG.
-    have H : forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B. 
-        move => u; move /HG. 
-        rewrite [u]surjective_pairing => /=; move /setXP => //.
+    have H : [forall u, (u ∈ G) ==> (u.1 ∈ A) && (u.2 ∈ B)].
+        apply /forallP => u.
+        apply /implyP => uG.
+        apply /andP.
+        move : (HG u uG).
+        destruct u as [a b].
+        move /setXP => //=.
     pose Γ := mkFunc G H.
     exists Γ; split => //= Γ' H'.
-    apply graph_inj; rewrite -H' => //=.
+    apply func_extension; rewrite -H' => //=.
 Qed.   
 
 
@@ -229,7 +228,7 @@ Qed.
 Lemma invK :
     inv  (inv Γ) = Γ.
 Proof.
-    apply graph_inj => /=.
+    apply func_extension => /=.
     apply extension; apply /subsetP => x;
     rewrite !in_set -surjective_pairing => //=.
 
