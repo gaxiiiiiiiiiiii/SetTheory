@@ -2,15 +2,16 @@ Require Export Ops.
 Require Import ProofIrrelevance.
 
 
+
 Module Func.
 
-    Definition mixin {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}) :=
-            [forall u, u ∈ G ==> (u.1 ∈ A) && (u.2 ∈ B)].
+
 
     Record func {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
         sort :> {set  T * T'};
         axiom : [forall u, u ∈ sort ==> (u.1 ∈ A) && (u.2 ∈ B)]
     }.
+
 
 End Func.
 
@@ -20,9 +21,54 @@ Notation "A → B" := (func A B)(at level 30).
 Notation mkFunc := (Func.Pack _ _ _ _).
 Coercion Func.sort : func >-> set_of.
 
+
+Definition func_mixinb {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}) :=
+    [forall u, u ∈ G ==> (u.1 ∈ A) && (u.2 ∈ B)].
+
+Definition func_mixinp {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}) :=
+    forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B.
+
+Theorem func_mixin_elim  {T T' : finType} {A : {set T}} {B : {set T'}} {G : {set T * T'}} :
+        [forall u, u ∈ G ==> (u.1 ∈ A) && (u.2 ∈ B)] -> 
+        forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B .
+Proof.
+    move /forallP => H u Hu; move : H.
+    move /(_ u) /implyP /(_ Hu) /andP => //.
+Qed.
+
+Theorem func_mixin_intro  {T T' : finType} {A : {set T}} {B : {set T'}} {G : {set T * T'}} :
+        (forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B)  ->
+        [forall u, u ∈ G ==> (u.1 ∈ A) && (u.2 ∈ B)].        
+Proof.
+    move => H.
+    apply /forallP => u.
+    apply /implyP => Hu.
+    apply /andP; apply H => //.
+Qed.    
+
+
+
+Theorem func_mixinP  {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}) :
+    reflect 
+        (forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B) 
+        ([forall u, u ∈ G ==> (u.1 ∈ A) && (u.2 ∈ B)]).
+Proof.
+    apply (iffP idP).
+    +   apply func_mixin_elim.
+    +   apply func_mixin_intro.
+Qed.    
+
+
+      
+
+
+
+
 Section funcCanonical.
 
     Context {T T' : finType} (A : {set T}) (B : {set T'}).
+
+    
 
     Canonical func_subType := Eval hnf in [subType for (Func.sort A B)].
 
@@ -124,12 +170,14 @@ Qed.
 
 
 Lemma invH {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :
-    Func.mixin B A (inv_set (graph Γ)).
+    func_mixinb B A (inv_set (graph Γ)).
 Proof.
-    apply /forallP => u; apply /implyP.
-    move /inv_setP /in_graph => //= [Ha Hb].
-    apply /andP; split => //.
-Qed.
+    apply /forallP => u; destruct u as [a b].
+    apply /implyP.
+    move /inv_setP /in_graph => /= [Ha Hb].
+    apply /andP => //=.
+Qed.    
+
 
 Definition inv {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :=
     mkFunc (inv_set (graph Γ)) (invH Γ).
@@ -165,13 +213,12 @@ Theorem uniex_graph : forall {T T' : finType} {A : {set T}} {B : {set T'}},
 Proof.
     move => T T' A B G HG.
     move /subsetP : HG => HG.
-    have H : [forall u, (u ∈ G) ==> (u.1 ∈ A) && (u.2 ∈ B)].
-        apply /forallP => u.
-        apply /implyP => uG.
-        apply /andP.
+    have H : forall u, (u ∈ G) -> (u.1 ∈ A) /\ (u.2 ∈ B).
+        move => u uG.
         move : (HG u uG).
         destruct u as [a b].
         move /setXP => //=.
+    move /func_mixinP : H => H.
     pose Γ := mkFunc G H.
     exists Γ; split => //= Γ' H'.
     apply func_extension; rewrite -H' => //=.
