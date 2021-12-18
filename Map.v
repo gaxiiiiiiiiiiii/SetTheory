@@ -59,7 +59,7 @@ Qed.
                 
 
 
-Theorem map_theorem {T T' : finType} {A : {set T}} {B : {set T'}} {f  : map A B} {a b b'}:
+Theorem map_theorem {T T' : finType} {A : {set T}} {B : {set T'}} (f  : map A B) a b b':
     b ∈ image f a -> b' ∈ image f a -> b = b'.
 Proof.
     move => /= H H'.

@@ -12,45 +12,44 @@ Proof.
     +   move => [b Hb]; apply /existsP; exists b; apply /andP => //.
 Qed.
 
-Lemma compcH {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
+Lemma compfH {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
     (g : B → C) (f : A → B) : let gf := comp_set (graph g) (graph f) in
-    forall u, u ∈ gf -> u.1 ∈ A /\ u.2 ∈ C.
+    func_mixinp A C gf.
 Proof.    
     move => gf u /comp_setP; case => b; case => //.
-    clear gf.
-    induction f as [f_ Hf], g as [g_ Hg] => /=.
-    move /func_mixinP in Hf.
-    move /func_mixinP in Hg.
+    induction f as [f_ Hf_], g as [g_ Hg_] => /=.
+    move : (func_mixin_elim Hf_) => Hf.
+    move : (func_mixin_elim Hg_) => Hg.
     move /Hf => /= [Ha Hb].
     move /Hg => /= [_ Hc].
     done.
 Qed.
 
 
-Definition compc {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
+Definition compf {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
     (g : B → C) (f : A → B) : A → C := 
-    mkFunc (comp_set (graph g) (graph f)) (func_mixin_intro (compcH g f)).
+    mkFunc (comp_set (graph g) (graph f)) (func_mixin_intro (compfH g f)).
 
 
 Lemma compH {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
     (g : B ⟶ C) (f : A ⟶ B) : 
-    forall a, a ∈ A -> exists b, image (compc g f) a = [set b].
+    map_mixinp A C (compf g f).
 Proof.
-    induction f as [Γf Hf], g as [Γg Hg].
-    induction Γf as [Gf HGf], Γg as [Gg HGg].
+    induction f as [Γf Hf_], g as [Γg Hg_].
+    induction Γf as [Gf HGf_], Γg as [Gg HGg_].
+    move : (map_mixin_elim Hf_) => Hf.
+    move : (map_mixin_elim Hg_) => Hg.
+    move : (func_mixin_elim HGf_) => HGf.
+    move : (func_mixin_elim HGg_) => HGg.
     move => a /=.
-    move /map_mixinP in Hf.
-    move /map_mixinP in Hg.
-    move : (func_mixin_elim HGg) => HGg_.
-    move : (func_mixin_elim HGf) => HGf_.
     move /Hf => [b Hb].
-    have : (a,b) ∈ graph (mkFunc Gf HGf).
+    have : (a,b) ∈ graph (mkFunc Gf HGf_).
         apply /imageP; rewrite Hb; apply /set1P => //.
-    move /HGf_; case => _ /=.
+    move /HGf; case => _ /=.
     move /Hg => [c Hc].
-    have : (b,c) ∈ graph (mkFunc Gg HGg).
+    have : (b,c) ∈ graph (mkFunc Gg HGg_).
         apply /imageP; rewrite Hc; apply /set1P => //.
-    move /HGg_ => /= [bB cC].
+    move /HGg => /= [bB cC].
     exists c.
     apply extension; apply /subsetP => c'. move /imageP => /=.
     +   move /comp_setP => /= [b' [Hb' Hc']].
@@ -64,16 +63,16 @@ Proof.
     +   move /set1P ->.
         apply /imageP => /=.
         apply /comp_setP; exists b => /=; split.
-        -   suff : b ∈ image (mkFunc Gf HGf) a.
+        -   suff : b ∈ image (mkFunc Gf HGf_) a.
                 apply /imageP => //.
             rewrite Hb; apply /set1P => //.
-        -   suff : c ∈ image (mkFunc Gg HGg) b.
+        -   suff : c ∈ image (mkFunc Gg HGg_) b.
                 apply /imageP => //.
             rewrite Hc; apply /set1P => //.
 Qed.            
 
 Definition comp   {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
-    (g : B ⟶ C) (f : A ⟶ B) := mkMap (compc g f) (map_mixin_intro (compH g f)).
+    (g : B ⟶ C) (f : A ⟶ B) := mkMap (compf g f) (map_mixin_intro (compH g f)).
 
 Notation "g ○ f" := (comp g f) (at level 30).
 
@@ -100,13 +99,11 @@ Proof.
     move => Hf Hg a a' Ha Ha' H. 
 
     remember (g ○ f) as h.
-    (* rewrite /comp /compc in Heqh. *)
+    rewrite /comp /compf in Heqh.
 
 
 
-
-    induction h as [Γh Hh].
-    rename Hh into Hh_.
+    induction h as [Γh Hh_].
     move : (map_mixin_elim Hh_) => Hh.
     move : (Hh a Ha) => [c0 ha].
     move : (Hh a' Ha') => [c0' ha'].
@@ -122,7 +119,6 @@ Proof.
     have : c0 ∈ image Γh a'.
         rewrite ha'; apply /set1P => //.
     rewrite H0.
-    (* rewrite !ImageP => /=. *)
     move /imageP /comp_setP => /= [b0' [fa' gb0']].
     move /imageP /comp_setP => /= [b0 [fa gb]].
     
@@ -130,8 +126,7 @@ Proof.
     
     move : (Hf a a' Ha Ha').
     apply.
-    induction f => /=.
-    rename axiom into axiom_.
+    induction f as [Γ axiom_]=> /=.
     move : (map_mixin_elim axiom_) => axiom.
     move : Ha'; move /axiom => [b' fb'].
     move : Ha;  move /axiom => [b fb].
@@ -140,7 +135,7 @@ Proof.
         move -> => //.
         
     
-    induction sort as [G HG_].
+    induction Γ as [G HG_].
     move : (func_mixin_elim HG_) => HG.
     have : (a,b) ∈ graph (mkFunc G HG_).
         apply /imageP; rewrite fb; apply /set1P => //.
@@ -150,10 +145,9 @@ Proof.
     move /HG => /= [Ha Hb].
     apply Hg => //.
 
-    induction g.
-    rename axiom0 into axiom0_.
-    move : (map_mixin_elim axiom0_) => axiom0.
-    move : Hb; move /axiom0. move  => [c Hc].
+    induction g as [Γ0 axiom0_].
+    move : (map_mixin_elim axiom0_) => axiom0.    
+    move : Hb; move /axiom0  => [c Hc].
     move : Hb'; move /axiom0 => [c' Hc'].
     rewrite Hc Hc'.
     suff : c = c'.
@@ -174,11 +168,12 @@ Proof.
     done.
 Qed.
 
+
 Theorem surj_comp :
     surj f -> surj g -> surj (g ○ f).
 Proof.
     rewrite /surj => Hf Hg.
-    rewrite /comp /compc => /=.
+    rewrite /comp /compf => /=.
     apply extension; apply /subsetP => c.
     +   move /rangeP; case => a /=.
         move /comp_setP => /= [b [Hab Hbc]].
@@ -188,7 +183,7 @@ Proof.
         rewrite -Hg in Hc; move : Hc.
         move /rangeP => [b Hbc_].
         inversion Hbc_ as [Hbc]; move : Hbc_.
-        induction g as [Γ axiom].
+        induction g as [Γ axiom_].
         induction Γ as [G axiom0_] => /=.
         move : (func_mixin_elim axiom0_) => axiom0.
         move /axiom0 => /= [Hb _].
@@ -196,7 +191,6 @@ Proof.
         move /rangeP => [a Hab].
         exists a; apply /comp_setP; exists b => //.
 Qed.
-
 
 Theorem bij_comp :
     bij f -> bij g -> bij (g ○ f).
@@ -248,7 +242,7 @@ Proof.
     move => [a1 a2]; rewrite in_set; move /andP => /= [/setXP [H1 H2] _] => //.
 Qed.    
 
-Definition id_func := mkFunc (id_set) (func_mixin_intro id_func_mixin).
+Definition id_func := mkFunc (id_set) (func_mixin_intro( id_func_mixin)).
 
 Theorem id_map_mixin : map_mixinp A A id_func.
 Proof.
@@ -275,9 +269,11 @@ Proof.
     apply map_extension; apply extension; apply /subsetP => u /=; induction u as [a b].
     +   move /comp_setP => /= [x [/id_setP /= [_ ax] H]]; subst x => //.
     +   induction f as [Γ axiom_].
-        induction Γ as [G axiom0_] => /= H.
+        induction Γ as [G axiom0_].
+        move : (map_mixin_elim axiom_) => axiom.
         move : (func_mixin_elim axiom0_) => axiom0.
-        move : (axiom0 _ H) => /= [aA _].
+        move => /= H.
+        move : (axiom0 _ H) => [aA _].
         apply /comp_setP => /=.
         exists a; split => //.
         apply /id_setP; split => //.
@@ -292,8 +288,10 @@ Proof.
         move => [x [H /id_setP /= [_ xb]]].
         subst x => //.
     +   induction f as [Γ axiom_].
-        induction Γ as [G axiom0_] => /= H.
+        induction Γ as [G axiom0_].
+        move : (map_mixin_elim axiom_) => axiom.
         move : (func_mixin_elim axiom0_) => axiom0.
+        move => H.
         move : (axiom0 _ H) => /= [_ bB].
         apply /comp_setP => /=.
         exists b; split => //.
@@ -325,7 +323,7 @@ Proof.
     move : Hbi; rewrite /bij /inj /surj; move => [Hs Hi].
     move /bij_inv : Hbi => [axiom' [ Hs' Hi']].
     apply map_extension; apply extension; apply /subsetP => u /=; induction u as [a a'].
-    +   induction f as [Γ axiom_] => /=.
+    +   induction f as [Γ axiom_].
         move : (map_mixin_elim axiom_) => axiom.
         move /comp_setP => /= [b [Hf /inv_setP /= Hf']].
         move : (in_graph _ _ Hf) => /= [Ha Hb].
@@ -353,8 +351,8 @@ Proof.
     move : Hbi; rewrite /bij /inj /surj; move => [Hs Hi].
     move /bij_inv : Hbi => [axiom'_ [ Hs' Hi']].
     move : (map_mixin_elim axiom'_) => axiom'.
-     apply map_extension; apply extension; apply /subsetP => u /=; induction u as [b b'].
-    +   induction f as [Γ axiom_] => /=.
+    apply map_extension; apply extension; apply /subsetP => u /=; induction u as [b b'].
+    +   induction f as [Γ axiom_].
         move : (map_mixin_elim axiom_) => axiom.
         move /comp_setP => /= [a [/inv_setP /= Hf Hf']].
         move : (in_graph _ _ Hf) => /= [Ha Hb].
@@ -413,8 +411,8 @@ Theorem restrict_map_axiom :
     map_mixinp A' B (restrict_func (graph f) graph_sub).
 Proof.
     move : graph_sub. 
-    induction f as [Γ axiom_]=> graph_sub.
-    move : (map_mixin_elim axiom_) => axiom.
+    induction f as [Γ axiom_].
+    move : (map_mixin_elim axiom_) => axiom graph_sub.
     move => a Ha'.
     have Ha : a ∈ A.
         move /subsetP : AA => HA.
