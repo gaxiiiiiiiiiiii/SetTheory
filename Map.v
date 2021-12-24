@@ -10,6 +10,7 @@ Module Map.
         axiom : [forall a, (a ∈ A) ==> [exists b, image sort a == [set b]]]
     }.
     
+    
 
 End Map.
 
