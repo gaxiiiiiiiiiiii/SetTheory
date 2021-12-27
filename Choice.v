@@ -41,7 +41,7 @@ Qed.
 
 
 
-Theorem ex_inv {T T' : finType} {A : {set T}} {B : {set T'}} (f : A ⟶ B) :
+Theorem surj_invr {T T' : finType} {A : {set T}} {B : {set T'}} (f : A ⟶ B) :
     surj f <-> exists g : B ⟶ A, f ○ g = id B.
 Proof.             
     split; rewrite /surj => /=.
@@ -209,5 +209,82 @@ Proof.
         rewrite in_set => /=.
         move /existsP => [a /andP [_ Hab]].
         apply /rangeP; exists a => //.
-Qed.        
+Qed.   
+
+Theorem inj_invl {T T' : finType} {A : {set T}} {B : {set T'}} (f : A ⟶ B) :
+    inj f <-> exists g : B ⟶ A, g ○ f = id A.
+Proof.
+    induction f as [Gf Hfm_].
+    induction Gf as [F Hff_].
+    move : (func_mixin_elim Hff_) => Hff.
+    move : (map_mixin_elim Hfm_) => Hfm.
+    split; rewrite /inj; first last.
+    +   move => [g Hg] a a' Ha Ha' H.
+        induction g as [Gg Hgm_].
+        induction Gg as [G Hgf_].
+        move : (func_mixin_elim Hgf_) => Hgf.
+        move : (map_mixin_elim Hgm_) => Hgm.  
+        simpl.
+        
+        have : (a,a) ∈ id A.
+            rewrite in_set; apply /andP; split => //.
+            apply /setXP => //.
+        rewrite -Hg in_set => /=.
+        move /existsP => [b /andP [abF baG]].
+
+        have : (a',a') ∈ id A.
+            rewrite in_set; apply /andP; split => //.
+            apply /setXP => //.
+        rewrite -Hg in_set => /=.
+        move /existsP => [b' /andP [abF' baG']].
+
+        move : (Hfm _ Ha) => [b0 Hb0].
+        move : (Hfm _ Ha') => [b0' Hb0'].
+        rewrite H in Hb0.
+        rewrite Hb0' in Hb0.
+        have bb : b0 = b0'.
+            apply /set1P; rewrite Hb0; apply /set1P => //.
+        subst b0'; clear Hb0.
+
+        have bb : b = b0.
+            apply /set1P; rewrite -Hb0'; rewrite -H; apply /imageP => //.
+        subst b0.
+        have bb : b' = b.
+            apply /set1P; rewrite -Hb0'; apply /imageP => //.
+        subst b'.
+
+        apply (map_theorem (mkMap (mkFunc G Hgf_) Hgm_) b a a');
+        apply /imageP => //.
+    
+    +   move => /= H.
+        pose f := mkMap (mkFunc F Hff_) Hfm_.
+        pose G' := [set u | (u.2, u.1) ∈ f].
+        have Hgf : func_mixinb (range f) A G'.
+            apply /forallP => u; induction u as [b a].
+            apply /implyP; rewrite in_set => /= Hab.
+            move : (Hff _ Hab) => /= [Ha Hb].
+            apply /andP; split => //.
+            apply /rangeP; exists a => //.
+        pose Gg' := mkFunc G' Hgf.
+        have Hgm : map_mixinb (range f) A Gg'.
+            apply /forallP => b.
+            apply /implyP.
+            move /rangeP => [a Hab].
+            apply /existsP; exists a.
+            apply /eqP; setE a_.
+            +   pose f'b := preimage f b.
+                move /imageP.
+                rewrite in_set => /= Hab_.
+                apply /set1P.
+                apply H.
+                move : (Hff _ Hab_); case => //=.
+                move : (Hff _ Hab); case => //.
+                
+        
+
+        have : (a,a) ∈ id A.
+            rewrite in_set; apply /andP; split => //.
+            apply /setXP => //.
+
+
 
