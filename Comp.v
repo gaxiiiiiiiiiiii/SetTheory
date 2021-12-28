@@ -42,33 +42,43 @@ Proof.
     move : (func_mixin_elim HGf_) => HGf.
     move : (func_mixin_elim HGg_) => HGg.
     move => a /=.
-    move /Hf => [b Hb].
+    move /Hf => [b [Hb unib]].
     have : (a,b) ∈ graph (mkFunc Gf HGf_).
         apply /imageP; rewrite Hb; apply /set1P => //.
     move /HGf; case => _ /=.
-    move /Hg => [c Hc].
+    move /Hg => [c [Hc unic]].
     have : (b,c) ∈ graph (mkFunc Gg HGg_).
         apply /imageP; rewrite Hc; apply /set1P => //.
     move /HGg => /= [bB cC].
-    exists c.
-    apply extension; apply /subsetP => c'. move /imageP => /=.
-    +   move /comp_setP => /= [b' [Hb' Hc']].
+    exists c; split.
+    +   apply extension; apply /subsetP => c'.
+        +   move /imageP => /=.
+            move /comp_setP => /= [b' [Hb' Hc']].
+            have bb : b' = b.
+                apply /set1P; rewrite -Hb; apply /imageP => //=.
+            subst b'.
+            have cc : c' = c.
+                apply /set1P; rewrite -Hc. apply /imageP => //.
+            subst c'.
+            apply /set1P => //.
+        +   move /set1P ->.
+            apply /imageP => /=.
+            apply /comp_setP; exists b => /=; split.
+            -   suff : b ∈ image (mkFunc Gf HGf_) a.
+                    apply /imageP => //.
+                rewrite Hb; apply /set1P => //.
+            -   suff : c ∈ image (mkFunc Gg HGg_) b.
+                    apply /imageP => //.
+                rewrite Hc; apply /set1P => //.
+    +   move => c' H.
+        have : c' ∈ image (compf (mkFunc Gg HGg_) (mkFunc Gf HGf_)) a.
+            rewrite H; apply /set1P => //.
+        move /imageP.
+        move/ comp_setP => [b' [/imageP abF /imageP abG]].
         have bb : b' = b.
-            apply /set1P; rewrite -Hb; apply /imageP => //=.
+            apply /set1P; rewrite -Hb => //.
         subst b'.
-        have cc : c' = c.
-            apply /set1P; rewrite -Hc. apply /imageP => //.
-        subst c'.
-        apply /set1P => //.
-    +   move /set1P ->.
-        apply /imageP => /=.
-        apply /comp_setP; exists b => /=; split.
-        -   suff : b ∈ image (mkFunc Gf HGf_) a.
-                apply /imageP => //.
-            rewrite Hb; apply /set1P => //.
-        -   suff : c ∈ image (mkFunc Gg HGg_) b.
-                apply /imageP => //.
-            rewrite Hc; apply /set1P => //.
+        symmetry; apply /set1P; rewrite -Hc => //.
 Qed.            
 
 Definition comp   {T1 T2 T3 : finType} {A : {set T1}} {B : {set T2}} {C : {set T3}} 
@@ -105,8 +115,8 @@ Proof.
 
     induction h as [Γh Hh_].
     move : (map_mixin_elim Hh_) => Hh.
-    move : (Hh a Ha) => [c0 ha].
-    move : (Hh a' Ha') => [c0' ha'].
+    move : (Hh a Ha) => [c0 [ha unia]].
+    move : (Hh a' Ha') => [c0' [ha' unia']].
     move : H => /=; rewrite ha ha' => cc'.
     have cc : c0' = c0.
         apply /set1P; rewrite cc'; apply /set1P => //.
@@ -128,8 +138,8 @@ Proof.
     apply.
     induction f as [Γ axiom_]=> /=.
     move : (map_mixin_elim axiom_) => axiom.
-    move : Ha'; move /axiom => [b' fb'].
-    move : Ha;  move /axiom => [b fb].
+    move : Ha'; move /axiom => [b' [fb' unib']].
+    move : Ha;  move /axiom => [b [fb unib]].
     rewrite fb fb'.
     suff : b = b'.
         move -> => //.
@@ -147,8 +157,8 @@ Proof.
 
     induction g as [Γ0 axiom0_].
     move : (map_mixin_elim axiom0_) => axiom0.    
-    move : Hb; move /axiom0  => [c Hc].
-    move : Hb'; move /axiom0 => [c' Hc'].
+    move : Hb; move /axiom0  => [c [Hc unic]].
+    move : Hb'; move /axiom0 => [c' [Hc' unic']].
     rewrite Hc Hc'.
     suff : c = c'.
         move -> => //.
@@ -247,11 +257,16 @@ Definition id_func := mkFunc (id_set) (func_mixin_intro( id_func_mixin)).
 Theorem id_map_mixin : map_mixinp A A id_func.
 Proof.
     move => a Ha; exists a; rewrite image_graph => //=.
-    apply extension; apply /subsetP => x; rewrite in_set.
-    +   move /id_setP => /= [_ Hax]; subst x.
-        apply /set1P => //.
-    +   move /set1P ->; rewrite in_set; apply /andP; split => //.
-        apply /setXP => //.
+    split.
+    +   apply extension; apply /subsetP => x; rewrite in_set.
+        +   move /id_setP => /= [_ Hax]; subst x.
+            apply /set1P => //.
+        +   move /set1P ->; rewrite in_set; apply /andP; split => //.
+            apply /setXP => //.
+    +   move => a' H.
+        apply /set1P; rewrite -H !in_set //=.
+        apply /andP; split => //.
+        apply /andP => //.
 Qed.
 
 Definition id := mkMap id_func (map_mixin_intro id_map_mixin).
@@ -311,7 +326,7 @@ Theorem inv_map_mixin :
 Proof.
     move : Hbi => [surjf injf].
     move /bij_inv : Hbi => [H' Hf'] => //.
-    apply /map_mixinP => //.
+    apply /map_mixin_elim => //.
 Qed.    
   
 Definition Inv  :=    
@@ -328,8 +343,8 @@ Proof.
         move /comp_setP => /= [b [Hf /inv_setP /= Hf']].
         move : (in_graph _ _ Hf) => /= [Ha Hb].
         move : (in_graph _ _ Hf') => /= [Ha' _].
-        move : (axiom _ Ha) => [b0 ima].
-        move : (axiom _ Ha') => [b0' ima'].
+        move : (axiom _ Ha) => [b0 [ima unia]].
+        move : (axiom _ Ha') => [b0' [ima' unia']].
         move /imageP : Hf; rewrite ima; move /set1P => bb; subst b0.
         move /imageP : Hf'; rewrite ima'; move /set1P => bb; subst b0'.
         suff : a = a'.
@@ -357,8 +372,8 @@ Proof.
         move /comp_setP => /= [a [/inv_setP /= Hf Hf']].
         move : (in_graph _ _ Hf) => /= [Ha Hb].
         move : (in_graph _ _ Hf') => /= [_ Hb'].
-        move : (axiom' _ Hb) => /= [a0 imb].
-        move : (axiom' _ Hb') => /= [a0' imb'].
+        move : (axiom' _ Hb) => /= [a0 [imb unib]].
+        move : (axiom' _ Hb') => /= [a0' [imb' unib']].
         move /imageP : Hf; rewrite -in_inv imb; move /set1P => aa; subst a0.
         move /imageP : Hf' ; rewrite -in_inv imb'; move /set1P => aa; subst a0'.
         suff : b = b'.
@@ -417,17 +432,25 @@ Proof.
     have Ha : a ∈ A.
         move /subsetP : AA => HA.
         apply HA => //.
-    move : (axiom a Ha) => [b ima].
+    move : (axiom a Ha) => [b [ima unia]].
     exists b => /=.
-    apply extension; apply /subsetP => b'.
-    +   move /imageP => /=.
-        rewrite in_set.
-        move /andP => /= [/imageP Hab _].
-        rewrite -ima => //.
-    +   move /set1P ->.
-        apply /imageP => /=.
-        rewrite in_set; apply /andP; split => //.
-        apply /imageP.
+    split.
+    +   apply extension; apply /subsetP => b'.
+        +   move /imageP => /=.
+            rewrite in_set.
+            move /andP => /= [/imageP Hab _].
+            rewrite -ima => //.
+        +   move /set1P ->.
+            apply /imageP => /=.
+            rewrite in_set; apply /andP; split => //.
+            apply /imageP.
+            rewrite ima; apply /set1P => //.
+    +   move => b' H.
+        apply /set1P; rewrite -H; apply /imageP => /=.
+        rewrite in_set => /=.
+        apply /andP; split => //.
+        suff : b ∈ image Γ a.
+            move /imageP => //.
         rewrite ima; apply /set1P => //.
 Qed.
 
