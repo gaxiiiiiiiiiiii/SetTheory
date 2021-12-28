@@ -1,16 +1,49 @@
 Require Export Func.
 
 
+Definition map_mixinb {T T' : finType} (A : {set T}) (B : {set T'}) (f : A → B) :=
+    [forall a, (a ∈ A) ==> 
+        [exists b, (image f a == [set b]) && 
+            [forall b', (image f a == [set b']) ==> (b == b')]]].
+
+Definition map_mixinp {T T' : finType} (A : {set T}) (B : {set T'}) (f : A → B) :=
+    forall a, (a ∈ A) -> exists ! b, image f a = [set b].
+
+Theorem map_mixin_elim {T T' : finType} {A : {set T}} {B : {set T'}} {f : A → B} :
+        [forall a, (a ∈ A) ==> 
+            [exists b, (image f a == [set b]) && 
+            [forall b', (image f a == [set b']) ==> (b == b')]]] ->
+        forall a, (a ∈ A) -> exists ! b, image f a = [set b].
+Proof. 
+    move /forallP => H a Ha; move : H.
+    move /(_ a) /implyP /(_ Ha) /existsP => [b Hb].
+    move /andP : Hb => [/eqP im uni].
+    exists b; split => //.
+    move => b' /eqP Hb'.
+    move /forallP /(_ b') /implyP /(_ Hb') /eqP : uni => //.
+Qed. 
+
+Theorem map_mixin_intro {T T' : finType} {A : {set T}} {B : {set T'}} {f : A → B} :
+        (forall a, (a ∈ A) -> exists ! b, image f a = [set b]) ->
+        [forall a, (a ∈ A) ==> 
+            [exists b, (image f a == [set b]) && 
+            [forall b', (image f a == [set b']) ==> (b == b')]]].
+Proof.
+    move => H. 
+    apply /forallP => a; apply /implyP => Ha.
+    move : (H a Ha) => [b [/eqP im uni]].
+    apply /existsP; exists b; apply /andP; split => //.
+    apply /forallP => b'; apply /implyP =>  /eqP Hb'.
+    apply /eqP; apply uni => //.
+Qed.  
+
 
 Module Map.
 
-
     Record map {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
         sort :> A → B;
-        axiom : [forall a, (a ∈ A) ==> [exists b, image sort a == [set b]]]
+        axiom : map_mixinb A B sort
     }.
-    
-    
 
 End Map.
 
@@ -19,47 +52,14 @@ Notation "A ⟶ B" := (map A B)(at level 30).
 Notation mkMap := (Map.Pack _ _ _ _).
 Coercion Map.sort : map >-> func.
 
-Definition map_mixinb {T T' : finType} (A : {set T}) (B : {set T'}) (Γ : A → B) :=
-    [forall a, (a ∈ A) ==> [exists b, image Γ a == [set b]]].
-
-Definition map_mixinp {T T' : finType} (A : {set T}) (B : {set T'}) (Γ : A → B) :=
-    forall a, (a ∈ A) -> exists b, image Γ a = [set b].
-
-Theorem map_mixin_elim {T T' : finType} {A : {set T}} {B : {set T'}} {Γ : A → B} :
-        [forall a, (a ∈ A) ==> [exists b, image Γ a == [set b]]] ->
-        forall a, (a ∈ A) -> exists b, image Γ a = [set b].
-Proof. 
-    move /forallP => H a Ha; move : H.
-    move /(_ a) /implyP /(_ Ha) /existsP => [b Hb].
-    exists b; apply /eqP => //.
-Qed. 
-
-Theorem map_mixin_intro {T T' : finType} {A : {set T}} {B : {set T'}} {Γ : A → B} :
-        (forall a, (a ∈ A) -> exists b, image Γ a = [set b]) ->
-        [forall a, (a ∈ A) ==> [exists b, image Γ a == [set b]]].
-Proof.
-    move => H. 
-    apply /forallP => a; apply /implyP => Ha.
-    move : (H a Ha) => [b Hb].
-    apply /existsP; exists b; apply /eqP => //.
-Qed.    
+  
 
 
-Theorem map_mixinP {T T' : finType} {A : {set T}} {B : {set T'}} (Γ : A → B) :
-    reflect 
-        (forall a, (a ∈ A) -> exists b, image Γ a = [set b]) 
-        ([forall a, (a ∈ A) ==> [exists b, image Γ a == [set b]]]).
-Proof.
-    apply (iffP idP).
-    +   apply map_mixin_elim.
-    +   apply map_mixin_intro.
-Qed.
+
 
       
 
-                
-
-
+            
 Theorem map_theorem {T T' : finType} {A : {set T}} {B : {set T'}} (f  : map A B) a b b':
     b ∈ image f a -> b' ∈ image f a -> b = b'.
 Proof.
@@ -72,8 +72,9 @@ Proof.
         move /H1 => [Ha _] => //.
     induction f.
     move : H H' => /=.
-    move /map_mixinP : axiom.
-    move /(_ a Ha); case => b0 ->.
+    move /map_mixin_elim : axiom.
+    move /(_ a Ha) => [b0 [im uni]].
+    rewrite im.
     repeat (move /set1P ->) => //.
 Qed.
 
@@ -124,6 +125,13 @@ Proof.
 Qed.        
 
 
+Ltac inductionM f :=
+        induction f as [Gf Hm_];
+        induction Gf as [F Hf_];
+        move : (map_mixin_elim Hm_) => Hm ;
+        move : (func_mixin_elim Hf_) => Hf.
+
+
 
 (* 定理２ *)
 
@@ -136,20 +144,14 @@ Variable (T T' : finType) (A : {set T}) (B : {set T'}).
 Lemma domain_map (f : A ⟶ B) :
     domain f = A.
 Proof.
-    destruct f as [Γ Hf].
-    destruct Γ as [G HG] => /=.
-    (* move /map_mixinP : Hf => Hf => //. *)
-    (* move /func_mixinP : HG. => HG. *)
-    apply extension; apply /subsetP => a; rewrite in_set => /=.
-    +   move /existsP => [b Hab].
-        clear Hf.        
-        move /func_mixinP /(_ _ Hab) : HG => [Ha _] //=.
-    +   move => aA.
-        move /map_mixinP /(_ a aA): Hf => [b Hb].
-        apply /existsP; exists b.
-        suff : b ∈ image (mkFunc G HG) a.
-            move /imageP => //.
-        rewrite Hb; apply /set1P => //.
+    inductionM f => /=.
+    setE a.
+    +   move /domainP => /= [b].
+        move /Hf => [] //=.
+    +   move /Hm => [b [im uni]].
+        apply /domainP; exists b.
+        apply /imageP.
+        rewrite im; apply /set1P => //.
 Qed.        
 
 
@@ -165,7 +167,7 @@ Proof.
         induction f as [Γ Hf].
         rewrite H => //= a Ha.
         simpl in H.
-        move /map_mixinP /(_ a Ha) : Hf => [b Hb].
+        move /map_mixin_elim /(_ a Ha) : Hf => [b [Hb uni]].
         exists b; repeat split. 
         -   suff : b ∈ image Γ a.
                 move /imageP => //.
@@ -177,17 +179,22 @@ Proof.
             move => u /HG; rewrite in_set; move /andP => //.
         move /func_mixinP : Hc => Hc.
         pose Γ := mkFunc G Hc.
-        have Hm : forall a, a ∈ A -> exists b, image Γ a = [set b].
+        have Hm : forall a, a ∈ A -> exists ! b, image Γ a = [set b].
             move => a /H => Hb.
             induction Hb as [b Hb].
             induction Hb as [Hb unib].
-            exists b.
-            move /subsetP : HG => HG.
-            move : (HG _ Hb); rewrite in_set => /=; move /andP => [aA bB].
-            apply extension; apply /subsetP => b'; rewrite in_set.
-            -   move /unib ->; apply /set1P => //.
-            -   move /eqP ->; apply /imageP => //.
-        move /map_mixinP : Hm => Hm.
+            exists b; split.                       
+            *   move /subsetP : HG => HG.
+                move : (HG _ Hb); rewrite in_set => /=; move /andP => [aA bB].
+                apply extension; apply /subsetP => b'; rewrite in_set.
+                -   move /unib ->; apply /set1P => //.
+                -   move /eqP ->; apply /imageP => //.
+            *   move => b' Hb'.
+                apply unib.
+                suff : b' ∈ image Γ a.
+                    move /imageP => //.
+                rewrite Hb'; apply /set1P => //.
+        move /map_mixin_intro : Hm => Hm.
         exists (mkMap Γ Hm) => //=.
 Qed.        
 
@@ -307,8 +314,8 @@ Proof.
             apply /func_mixinP => //.
         move /Hm => /= [aA bB].
         have Hf : map_mixinp A B (mkFunc G axiom0).
-            apply /map_mixinP => //.
-        move : (Hf a aA) => [b Hb].
+            apply /map_mixin_elim => //.
+        move : (Hf a aA) => [b [Hb uni]].
         rewrite Hb in fa1.
         rewrite Hb in fa2.
         move /set1P in fa1; move /set1P in fa2; subst b1 b2.
@@ -332,7 +339,7 @@ Proof.
         apply /negP; move =>  /PreimageP [b' [Hb' F]].
         move /imageP in fa.
         simpl in fa.
-        move /map_mixinP /(_ _ aA): axiom => [b'' Hb''].
+        move /map_mixin_elim /(_ _ aA): axiom => [b'' [Hb'' uni]].
         move : Hb'; rewrite Hb''; move /set1P => bb; subst b''.
         move : fa => /=; rewrite Hb''; move /set1P => bb; subst b'.
         move /negP : HQ => H.
@@ -342,8 +349,8 @@ Proof.
         destruct f as [Γ axiom].
         destruct Γ as [G axiom0] => /=.
         have Hm : map_mixinp A B (mkFunc G axiom0).
-            apply /map_mixinP => //.
-        move : (Hm a aA) => [b Hb].
+            apply /map_mixin_elim => //.
+        move : (Hm a aA) => [b [Hb uni]].
         exists b; split => /=.
         -   rewrite Hb; apply /set1P => //.
         -   apply /setDP.
@@ -366,8 +373,8 @@ Proof.
     induction f.
     move /subsetP : PA => H.
     move : (H a aP) => /=.
-    move /map_mixinP : axiom => axiom.
-    move  /axiom => [b Hb].
+    move /map_mixin_elim : axiom => axiom.
+    move  /axiom => [b [Hb uni]].
     apply /PreimageP; exists b => /=.
     split.
     +   rewrite Hb; apply /set1P => //.
@@ -384,12 +391,10 @@ Proof.
     destruct Γ as [G axiom0] => /=.
     move : fa fa' => /=.
     move => /imageP /= HG /imageP /= HG'.
-    move /map_mixinP : axiom => axiom.
+    move /map_mixin_elim : axiom => axiom.
     have Hf: func_mixinp A B G by (apply /func_mixinP => //).
     move : (Hf _ HG) => /= [aA bB].
-    move : (axiom a aA) => [b'' H].
-    (* move : Hb''. *)
-    (* rewrite ImageP => //= H. *)
+    move : (axiom a aA) => [b'' [H uni]].
     have bb : b ∈ [set b''].
         rewrite -H; apply /imageP => //.
     have bb' : b' ∈ [set b''].
@@ -435,9 +440,10 @@ Proof.
             destruct f as [Γ axiom].
             destruct Γ as [G axiom0].
             simpl in Ha; simpl in H.
-            have Hm : map_mixinp A B (mkFunc G axiom0) by (apply /map_mixinP => //).
-            move : (Hm a1 Ha1) => [b1 Hb1].
-            move : (Hm a2 Ha2) => [b2 Hb2].
+            have Hm : map_mixinp A B (mkFunc G axiom0).
+                apply /map_mixin_elim => //.
+            move : (Hm a1 Ha1) => [b1 [Hb1 uni1]].
+            move : (Hm a2 Ha2) => [b2 [Hb2 uni2]].
             rewrite Hb1 Hb2 in Ha.
             have : b1 ∈ [set b2].
                 rewrite -Ha; apply /set1P => //.
@@ -465,9 +471,10 @@ Proof.
             apply Hs => //.
             induction f => /=.
             move /imageP : Hab; move /imageP : Hab' => /=.
-            have Hm : map_mixinp A B sort by (apply /map_mixinP => //).            
-            move : (Hm _ Ha); case => b0 ->.
-            move : (Hm _ Ha'); case => b0' ->.
+            have Hm : map_mixinp A B sort.
+                apply /map_mixin_elim => //.
+            move : (Hm _ Ha) => [b0 [Hb0 _]]; rewrite Hb0; clear Hb0.
+            move : (Hm _ Ha') => [b0' [Hb0' _]]; rewrite Hb0'; clear Hb0'.
             move /set1P ->; move /set1P -> => //.
         +   move /set1P ->; apply /imageP => //.
 Qed.
@@ -478,11 +485,23 @@ Proof.
     split.
     +   move => [H HH]. 
         rewrite -inv_bij_ => //.
-        apply /map_mixinP => //.
+        move => b Hb.
+        move : (map_mixin_elim H b Hb) => [a [Ha uni]].
+        exists a => //.
     +   rewrite -inv_bij_ => H.
-        move /map_mixinP : H => H.
-        pose f' := mkMap (inv f) H.
-        exists H, f' => //.
+        have Hm: map_mixinb B A (inv f).
+            apply /forallP => b.
+            apply /implyP => Hb.
+            move : (H b Hb) => [a /eqP Ha].
+            apply /existsP; exists a.
+            apply /andP; split => //.
+            apply /forallP => a'.
+            move /eqP in Ha.
+            apply /implyP; move /eqP.
+            rewrite Ha => aa.
+            apply /eqP /set1P; rewrite -aa; apply /set1P => //.
+        pose f' := mkMap (inv f) Hm.
+        exists Hm, f' => //.
 Qed.        
 
 Theorem bij_inv {T T' : finType} {A : {set T}} {B : {set T'}} (f : A ⟶ B) :
@@ -492,12 +511,13 @@ Proof.
     inversion H; move : H.
     rewrite -inv_bij.
     move => [H [f' Hf]].
-    have H_ : map_mixinp B A (inv f) by (apply /map_mixinP => //).
+    have H_ : map_mixinp B A (inv f).
+        apply /map_mixin_elim => //.
     exists H; split.
     +   rewrite /surj rang_inv domain_map => //.
     +   rewrite /inj=> /= b b' bB b'B Hb.
-        move : (H_ _ bB) => [a Ha].
-        move : (H_ _ b'B) => [a' Ha'].
+        move : (H_ _ bB) => [a [Ha uni]].
+        move : (H_ _ b'B) => [a' [Ha' uni']].
         rewrite Ha Ha' in Hb.
         have : a' ∈ [set a].
             rewrite Hb; apply /set1P => //.
@@ -511,10 +531,11 @@ Proof.
         destruct f as [Γ axiom].
         destruct Γ as [G axiom0].
         have axiom0_ : func_mixinp A B G by (apply /func_mixinP => //).
-        have axiom_ : map_mixinp A B (mkFunc G axiom0) by (apply /map_mixinP => //).
+        have axiom_ : map_mixinp A B (mkFunc G axiom0).
+            apply /map_mixin_elim => //.
         move : (axiom0_ _ Hab)=> /=. case => aA _.
         move : Hab Hab'=> /= Hab Hab'.
-        move : (axiom_ _ aA) => /= [b0 Hb0].
+        move : (axiom_ _ aA) => /= [b0 [Hb0 uni0]].
         have : b = b0.
             apply /set1P; rewrite -Hb0; apply /imageP => //.
         have : b' = b0.

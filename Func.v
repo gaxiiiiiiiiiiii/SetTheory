@@ -2,32 +2,9 @@ Require Export Ops.
 Require Import ProofIrrelevance.
 
 
-
-Module Func.
-
-
-
-    Record func {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
-        sort :> {set  T * T'};
-        axiom : [forall u, u ∈ sort ==> (u.1 ∈ A) && (u.2 ∈ B)]
-    }.
-
-
-    
-
-
-
-End Func.
-
-Notation func := Func.func.
-Notation graph := (Func.sort _ _ ).
-Notation "A → B" := (func A B)(at level 30).
-Notation mkFunc := (Func.Pack _ _ _ _).
-Coercion Func.sort : func >-> set_of.
-
-
 Definition func_mixinb {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}) :=
     [forall u, u ∈ G ==> (u.1 ∈ A) && (u.2 ∈ B)].
+
 
 Definition func_mixinp {T T' : finType} (A : {set T}) (B : {set T'}) (G : {set T * T'}) :=
     forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B.
@@ -42,7 +19,7 @@ Qed.
 
 Theorem func_mixin_intro  {T T' : finType} {A : {set T}} {B : {set T'}} {G : {set T * T'}} :
         (forall u, u ∈ G -> u.1 ∈ A /\ u.2 ∈ B)  ->
-        [forall u, u ∈ G ==> (u.1 ∈ A) && (u.2 ∈ B)].        
+        [forall u, u ∈ G ==> (u.1 ∈ A) && (u.2 ∈ B)]. 
 Proof.
     move => H.
     apply /forallP => u.
@@ -60,7 +37,30 @@ Proof.
     apply (iffP idP).
     +   apply func_mixin_elim.
     +   apply func_mixin_intro.
-Qed.    
+Qed.      
+
+
+Module Func.
+
+    Record func {T T' : finType} (A : {set T}) (B : {set T'}) : Type := Pack {
+        sort :> {set  T * T'};
+        axiom : func_mixinb A B sort
+        (* [forall u, u ∈ sort ==> (u.1 ∈ A) && (u.2 ∈ B)] *)
+    }.
+
+End Func.
+
+Notation func := Func.func.
+Notation graph := (Func.sort _ _ ).
+Notation "A → B" := (func A B)(at level 30).
+Notation mkFunc := (Func.Pack _ _ _ _).
+Coercion Func.sort : func >-> set_of.
+
+
+
+
+       
+  
 
 
       
